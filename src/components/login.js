@@ -1,7 +1,6 @@
-// src/components/LoginPage.jsx
 import React, { useState } from "react";
-import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import api from "../api/api";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
 
@@ -16,22 +15,32 @@ const LoginPage = () => {
     setErrorMsg("");
 
     try {
-      const res = await axios.post("http://127.0.0.1:5000/candidate/login", {
+      const response = await api.post("/candidate/login", {
         user_id: userId,
         password: password,
       });
 
-      const { access_token, is_submitted } = res.data;
+      const { access_token, refresh_token, is_submitted } = response.data;
       localStorage.setItem("token", access_token);
+      localStorage.setItem("refresh_token", refresh_token);
 
-      // ✅ Navigate based on exam submission status
-      if (is_submitted) {
-        navigate("/exam/response");
+      // ✅ Fetch profile to get exam end date
+      const profileRes = await api.get("/candidate/profile");
+      const examEndDate = new Date(profileRes.data.exam_end_date);
+      examEndDate.setHours(23, 59, 59); // end of the day
+
+      const now = new Date();
+      if (now > examEndDate) {
+        // ⛔ Exam expired, go to error page
+        navigate("/error");
       } else {
-        navigate("/instructions");
+        // ✅ Exam active, continue normal flow
+        navigate(is_submitted ? "/exam/response" : "/instructions");
       }
-    } catch (err) {
-      setErrorMsg(err.response?.data?.message || "Login failed");
+    } catch (error) {
+      const message =
+        error.response?.data?.message || "Login failed. Please try again.";
+      setErrorMsg(message);
     }
   };
 
@@ -43,7 +52,7 @@ const LoginPage = () => {
             <i className="bi bi-mortarboard-fill fs-3"></i>
           </div>
           <h4 className="fw-bold">MCQ Assessment Portal</h4>
-          <p className="text-muted">Industry Level Technical Examination</p>
+          <p className="text-muted">Industry-Level Technical Examination</p>
         </div>
 
         <form onSubmit={handleSubmit}>
@@ -71,7 +80,11 @@ const LoginPage = () => {
             />
           </div>
 
-          {errorMsg && <div className="alert alert-danger p-2 text-center">{errorMsg}</div>}
+          {errorMsg && (
+            <div className="alert alert-danger text-center p-2">
+              <i className="bi bi-exclamation-circle me-2"></i> {errorMsg}
+            </div>
+          )}
 
           <button type="submit" className="btn btn-primary w-100">
             <i className="bi bi-box-arrow-in-right me-2"></i> Login to Exam
