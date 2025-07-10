@@ -1,3 +1,4 @@
+// ExamInstructions.jsx
 import React, { useEffect, useState, useRef } from "react";
 import api from "../api/api";
 import { useNavigate } from "react-router-dom";
@@ -13,56 +14,62 @@ const ExamInstructions = () => {
   const [webcamStarted, setWebcamStarted] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+  const [showWebcamAlert, setShowWebcamAlert] = useState(false);
   const navigate = useNavigate();
 
   const sessionId = "EXM" + Math.floor(100000 + Math.random() * 900000);
+
+  const checkWebcam = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.onloadedmetadata = () => videoRef.current.play();
+      }
+      setWebcamStarted(true);
+      setErrorMsg("");
+      setShowWebcamAlert(false);
+    } catch {
+      setWebcamStarted(false);
+      setErrorMsg("❌ Webcam access is required to begin the examination.");
+      setShowWebcamAlert(true);
+    }
+  };
 
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         const res = await api.get("/candidate/profile");
         const { exam_duration } = res.data;
-
         const mins = exam_duration || 0;
         const hours = Math.floor(mins / 60);
         const minutes = mins % 60;
         res.data.formattedDuration = `${hours > 0 ? `${hours}h ` : ""}${minutes}m`;
-
         setProfile(res.data);
-      } catch (error) {
-        navigate("/"); // redirect to login on error
+      } catch {
+        navigate("/");
       }
     };
 
     fetchProfile();
-  }, [navigate]);
+    checkWebcam();
 
-  const startWebcam = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.onloadedmetadata = () => {
-          videoRef.current.play();
-        };
+    const interval = setInterval(() => {
+      if (!videoRef.current?.srcObject?.active) {
+        setWebcamStarted(false);
+        setShowWebcamAlert(true);
+        checkWebcam();
       }
-      setWebcamStarted(true);
-      setErrorMsg("");
-    } catch {
-      setWebcamStarted(false);
-      setErrorMsg("❌ Webcam access is required to begin the examination.");
-    }
-  };
+    }, 10000); // check every 10s
 
-  useEffect(() => {
-    startWebcam();
     return () => {
       const currentStream = videoRef.current?.srcObject;
       if (currentStream) {
         currentStream.getTracks().forEach((track) => track.stop());
       }
+      clearInterval(interval);
     };
-  }, []);
+  }, [navigate]);
 
   const handleStartClick = () => {
     if (!webcamStarted) {
@@ -77,10 +84,7 @@ const ExamInstructions = () => {
     try {
       const res = await api.post("/candidate/start_exam");
       const msg = res.data.message;
-      if (
-        msg === "Exam started successfully." ||
-        msg === "Exam already started."
-      ) {
+      if (msg === "Exam started successfully." || msg === "Exam already started.") {
         navigate("/exam");
       } else {
         alert(msg);
@@ -107,17 +111,11 @@ const ExamInstructions = () => {
               <i className="bi bi-journal-code me-2"></i>
               {profile.batch_title || "Assessment Portal"}
             </h5>
-            <small>
-              Candidate: <strong>{profile.candidate_name}</strong>
-            </small>
-            <br />
-            <small>
-              Exam Dates: <strong>{profile.exam_start_date} – {profile.exam_end_date}</strong>
-            </small>
+            <small>Candidate: <strong>{profile.candidate_name}</strong></small><br />
+            <small>Exam Dates: <strong>{profile.exam_start_date} – {profile.exam_end_date}</strong></small>
           </div>
           <div className="text-end">
-            <small>Session ID: <strong>{sessionId}</strong></small>
-            <br />
+            <small>Session ID: <strong>{sessionId}</strong></small><br />
             <small>Duration: <strong>{profile.formattedDuration}</strong></small>
           </div>
         </div>
@@ -126,7 +124,6 @@ const ExamInstructions = () => {
           <h4 className="text-warning mb-4">
             <i className="bi bi-exclamation-triangle-fill me-2"></i> Examination Instructions
           </h4>
-
           <div className="alert alert-danger">
             <h6><i className="bi bi-shield-lock-fill me-2"></i> 🔒 Strict Examination Rules</h6>
             <ul className="mb-0">
@@ -149,8 +146,12 @@ const ExamInstructions = () => {
               autoPlay
               playsInline
             ></video>
-            {!webcamStarted && errorMsg && (
-              <div className="text-danger mt-2 fw-bold">{errorMsg}</div>
+            {errorMsg && <div className="text-danger mt-2 fw-bold">{errorMsg}</div>}
+            {showWebcamAlert && (
+              <div className="alert alert-warning mt-3">
+                <i className="bi bi-camera-video-off me-2"></i>
+                Webcam appears to be turned off. Please keep it on during the exam.
+              </div>
             )}
           </div>
         </div>
