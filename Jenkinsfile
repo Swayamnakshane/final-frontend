@@ -23,7 +23,7 @@ pipeline {
 
         stage("build") {
             steps {
-                sh "docker build -t myfront1:latest ."
+                sh "docker build -t myfront2:latest ."
             }
         }
         stage("trivy") {
@@ -40,8 +40,8 @@ pipeline {
                     passwordVariable: "dockerHubPass"
                 )]) {
                     sh "docker login -u $dockerHubUser -p $dockerHubPass"
-                    sh "docker tag myfront1 $dockerHubUser/myfront1:latest"
-                    sh "docker push $dockerHubUser/myfront1:latest"
+                    sh "docker tag myfront2 $dockerHubUser/myfront2:latest"
+                    sh "docker push $dockerHubUser/myfront2:latest"
                 }
             }
         }
