@@ -113,12 +113,15 @@ const ExamPage = () => {
   };
 
   const prepareSubmit = () => {
-    const unanswered = questions
-      .filter(q => answers[q.question_id] === undefined)
-      .map((q, idx) => idx + 1);
-    setUnansweredQuestions(unanswered);
-    setShowSubmitModal(true);
-  };
+  const unanswered = questions.reduce((acc, q, idx) => {
+    if (answers[q.question_id] === undefined) {
+      acc.push({ index: idx + 1, question_id: q.question_id });
+    }
+    return acc;
+  }, []);
+  setUnansweredQuestions(unanswered);
+  setShowSubmitModal(true);
+};
 
   const handleSubmit = useCallback(async () => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -183,40 +186,46 @@ const ExamPage = () => {
   }, [examStarted, timeLeft, handleSubmit]);
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [profileRes, questionsRes] = await Promise.all([
-          api.get("/candidate/profile"),
-          api.get("/candidate/get/questions"),
-        ]);
+  const loadData = async () => {
+    try {
+      const [profileRes, questionsRes] = await Promise.all([
+        api.get("/candidate/profile"),
+        api.get("/candidate/get/questions"),
+      ]);
 
-        setCandidate(profileRes.data.candidate_name);
-        setQuestions(questionsRes.data.mcqs || []);
+      setCandidate(profileRes.data.candidate_name);
+      setQuestions(questionsRes.data.mcqs || []);
 
-        const savedAnswers = JSON.parse(localStorage.getItem("answers") || "{}");
-        const serverAnswers = await api.get("/candidate/get/all/answers");
-        setAnswers({ ...serverAnswers.data.answers, ...savedAnswers });
+      const savedAnswers = JSON.parse(localStorage.getItem("answers") || "{}");
+      const serverAnswers = await api.get("/candidate/get/all/answers");
+      setAnswers({ ...serverAnswers.data.answers, ...savedAnswers });
 
-        const storedEndsAt = localStorage.getItem("exam_ends_at");
+      const storedEndsAt = localStorage.getItem("exam_ends_at");
+
+      if (!storedEndsAt) {
+        const { data } = await api.post("/candidate/start_exam");
+        endsAtRef.current = data.ends_at;
+        localStorage.setItem("exam_ends_at", data.ends_at);
+        setExamStarted(true);
+
+        const remaining = Math.floor((new Date(data.ends_at) - new Date()) / 1000);
+        setTimeLeft(Math.max(0, remaining));
+      } else {
         endsAtRef.current = storedEndsAt;
+        setExamStarted(true);
 
-        if (!storedEndsAt) {
-          const { data } = await api.post("/candidate/start_exam");
-          endsAtRef.current = data.ends_at;
-          localStorage.setItem("exam_ends_at", data.ends_at);
-          setExamStarted(true);
-          setTimeLeft(Math.floor((new Date(data.ends_at) - new Date()) / 1000));
-        } else {
-          setTimeLeft(Math.floor((new Date(storedEndsAt) - new Date()) / 1000));
-          setExamStarted(true);
-        }
-      } catch {
-        navigate("/error", { state: { message: "Initialization failed" } });
+        const remaining = Math.floor((new Date(storedEndsAt) - new Date()) / 1000);
+        setTimeLeft(Math.max(0, remaining));
       }
-    };
+    } catch {
+      navigate("/error", { state: { message: "Initialization failed" } });
+    }
+  };
 
-    loadData();
-  }, [navigate]);
+  loadData();
+}, [navigate]);
+
+
 
   useEffect(() => {
     const handleVisibilityChange = async () => {
@@ -530,9 +539,11 @@ const ExamPage = () => {
                     <div>
                       <span className="d-block fw-medium mb-1">Unanswered Questions:</span>
                       <div className="d-flex flex-wrap gap-1">
-                        {unansweredQuestions.map(num => (
-                          <span key={num} className="badge bg-dark me-1">{num}</span>
-                        ))}
+                        {unansweredQuestions.map(q => (
+                        <span key={q.question_id} className="badge bg-dark me-1">
+                          {q.index}
+                        </span>
+                           ))}
                       </div>
                     </div>
                   </div>

@@ -51,7 +51,7 @@ const LoginPage = () => {
           <div className="bg-primary text-white rounded-circle p-3 mx-auto mb-2" style={{ width: 60, height: 60 }}>
             <i className="bi bi-mortarboard-fill fs-3"></i>
           </div>
-          <h4 className="fw-bold">MCQ Assessment Portal</h4>
+          <h4 className="fw-bold">Arcap Assessment Portal</h4>
           <p className="text-muted">Industry-Level Technical Examination</p>
         </div>
 
