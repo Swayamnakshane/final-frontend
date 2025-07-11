@@ -14,8 +14,8 @@ pipeline {
                 withSonarQubeEnv("sonar") {
                     sh """
                         ${SONAR_HOME}/bin/sonar-scanner \
-                        -Dsonar.projectName=myfront1 \
-                        -Dsonar.projectKey=myfront1
+                        -Dsonar.projectName=myfront2 \
+                        -Dsonar.projectKey=myfront2
                     """
                 }
             }
