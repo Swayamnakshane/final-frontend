@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "https://3.145.103.155.nip.io:8080/back",
+  baseURL: "https://af710c9ff2fa94811bf8e17a3a490fa1-1054419295.us-east-2.elb.amazonaws.com/back",
 });
 
 api.interceptors.request.use((config) => {
@@ -25,7 +25,7 @@ api.interceptors.response.use(
       originalRequest._retry = true;
 
       try {
-        const refreshRes = await axios.post("https://3.145.103.155.nip.io:8080/back/candidate/refresh", {
+        const refreshRes = await axios.post("https://af710c9ff2fa94811bf8e17a3a490fa1-1054419295.us-east-2.elb.amazonaws.com/back/candidate/refresh", {
           refresh_token: localStorage.getItem("refresh_token"),
         });
 
