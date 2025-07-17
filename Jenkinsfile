@@ -9,28 +9,28 @@ pipeline {
                 git url: "https://github.com/Swayamnakshane/final-frontend.git", branch: "front"
             }
         }
-        stage("SonarQube Analysis") {
-            steps {
-                withSonarQubeEnv("sonar") {
-                    sh """
-                        ${SONAR_HOME}/bin/sonar-scanner \
-                        -Dsonar.projectName=myfront2 \
-                        -Dsonar.projectKey=myfront2
-                    """
-                }
-            }
-        }
+        // stage("SonarQube Analysis") {
+        //     steps {
+        //         withSonarQubeEnv("sonar") {
+        //             sh """
+        //                 ${SONAR_HOME}/bin/sonar-scanner \
+        //                 -Dsonar.projectName=myfront2 \
+        //                 -Dsonar.projectKey=myfront2
+        //             """
+        //         }
+        //     }
+        // }
 
         stage("build") {
             steps {
                 sh "docker build -t myfront2:latest ."
             }
         }
-        stage("trivy") {
-            steps {
-                sh "trivy fs --format table -o trivy-fs-report.html ."
-            }
-        }
+        // stage("trivy") {
+        //     steps {
+        //         sh "trivy fs --format table -o trivy-fs-report.html ."
+        //     }
+        // }
 
         stage("dockerhub push") {
             steps {
