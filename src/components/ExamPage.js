@@ -578,7 +578,6 @@
 
 // export default ExamPage;
 
-
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import api from "../api/api";
 import { useNavigate } from "react-router-dom";
@@ -730,6 +729,10 @@ const ExamPage = () => {
     const qid = currentQuestion.question_id;
     const updated = { ...markedForReview, [qid]: !markedForReview[qid] };
     setMarkedForReview(updated);
+    
+    // Save to local storage
+    const updatedMarked = { ...markedForReview, [qid]: !markedForReview[qid] };
+    localStorage.setItem("markedForReview", JSON.stringify(updatedMarked));
   };
 
   const prepareSubmit = () => {
@@ -751,14 +754,22 @@ const ExamPage = () => {
     }
 
     try {
+      // Save all answers before submitting
+      const answerPromises = Object.entries(answers).map(([question_id, answer]) => 
+        api.post("/candidate/answer", { question_id, answer })
+      );
+      await Promise.all(answerPromises);
+      
       await api.post("/candidate/submit/exam");
       localStorage.removeItem("answers");
+      localStorage.removeItem("markedForReview");
+      localStorage.removeItem("visited");
       localStorage.removeItem("exam_ends_at");
       navigate("/exam/response");
     } catch {
       navigate("/error", { state: { message: "Submission failed" } });
     }
-  }, [navigate]);
+  }, [navigate, answers]);
 
   useEffect(() => {
     if (questions.length === 0) return;
@@ -815,9 +826,18 @@ const ExamPage = () => {
         setCandidate(profileRes.data.candidate_name);
         setQuestions(questionsRes.data.mcqs || []);
 
+        // Load saved data from localStorage
         const savedAnswers = JSON.parse(localStorage.getItem("answers") || "{}");
+        const savedMarked = JSON.parse(localStorage.getItem("markedForReview") || "{}");
+        const savedVisited = JSON.parse(localStorage.getItem("visited") || "{}");
+        
+        // Load server answers
         const serverAnswers = await api.get("/candidate/get/all/answers");
-        setAnswers({ ...serverAnswers.data.answers, ...savedAnswers });
+        
+        // Merge data with server priority
+        setAnswers({ ...savedAnswers, ...serverAnswers.data.answers });
+        setMarkedForReview(savedMarked);
+        setVisited(savedVisited);
 
         const storedEndsAt = localStorage.getItem("exam_ends_at");
 
@@ -915,15 +935,39 @@ const ExamPage = () => {
 
   const handleAnswer = (question_id, option) => {
     if (!cameraPermission) return;
+    
+    // Save previous answer for rollback
+    const previousAnswer = answers[question_id];
+    
+    // Optimistic update
     const updatedAnswers = { ...answers, [question_id]: option };
     setAnswers(updatedAnswers);
     localStorage.setItem("answers", JSON.stringify(updatedAnswers));
-    api.post("/candidate/answer", { question_id, answer: option }).catch(() => {});
+    
+    // Send to server with error handling
+    api.post("/candidate/answer", { question_id, answer: option })
+      .catch((error) => {
+        console.error("Failed to save answer:", error);
+        // Revert on failure
+        const revertedAnswers = { ...answers };
+        if (previousAnswer === undefined) {
+          delete revertedAnswers[question_id];
+        } else {
+          revertedAnswers[question_id] = previousAnswer;
+        }
+        setAnswers(revertedAnswers);
+        localStorage.setItem("answers", JSON.stringify(revertedAnswers));
+        
+        alert("Failed to save answer. Please check your connection.");
+      });
   };
 
   useEffect(() => {
     if (currentQuestion) {
-      setVisited(prev => ({ ...prev, [currentQuestion.question_id]: true }));
+      const qid = currentQuestion.question_id;
+      const updatedVisited = { ...visited, [qid]: true };
+      setVisited(updatedVisited);
+      localStorage.setItem("visited", JSON.stringify(updatedVisited));
     }
   }, [currentQuestion]);
 
@@ -983,7 +1027,8 @@ const ExamPage = () => {
               </div>
               <div className="vstack gap-3">
                 {currentQuestion?.options?.map((opt, idx) => {
-                  const prefix = opt.substring(0, 2);
+                  const prefix = opt.charAt(0); // Only 'A', 'B', 'C', 'D', etc.
+
                   const content = opt.substring(3);
                   
                   return (
