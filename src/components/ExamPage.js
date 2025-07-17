@@ -1,14 +1,53 @@
-
-
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import api from "../api/api";
 import { useNavigate } from "react-router-dom";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "bootstrap-icons/font/bootstrap-icons.css";
+import hljs from "highlight.js";
+import "highlight.js/styles/github-dark.css";
+
+// Helper component to format code in questions and options
+const FormattedContent = ({ content }) => {
+  const containerRef = useRef(null);
+  
+  useEffect(() => {
+    if (containerRef.current) {
+      containerRef.current.querySelectorAll('pre code').forEach((block) => {
+        hljs.highlightElement(block);
+      });
+    }
+  }, [content]);
+
+  if (!content) return null;
+  
+  const lines = content.split('\n');
+  const isCodeBlock = lines.some(line => line.startsWith('    ') || line.startsWith('\t'));
+  
+  if (isCodeBlock) {
+    return (
+      <div ref={containerRef} className="position-relative">
+        <pre className="bg-dark text-light p-3 rounded mb-0 overflow-auto">
+          <code>{content}</code>
+        </pre>
+        <span className="position-absolute top-0 end-0 bg-secondary text-white px-2 py-1 rounded-bottom fs-7">
+          Code
+        </span>
+      </div>
+    );
+  }
+  
+  return (
+    <div>
+      {lines.map((line, idx) => (
+        <p key={idx} className="mb-1">{line}</p>
+      ))}
+    </div>
+  );
+};
 
 const CameraPermissionModal = ({ show, onRetry }) => (
   <div
-    className={`modal fade ${show ? "show d-block" : "d-none"}`}
+    className={modal fade ${show ? "show d-block" : "d-none"}}
     tabIndex="-1"
     style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
   >
@@ -36,7 +75,7 @@ const CameraPermissionModal = ({ show, onRetry }) => (
 );
 
 const SessionWarningModal = ({ show, onHide, count }) => (
-  <div className={`modal fade ${show ? "show d-block" : "d-none"}`} tabIndex="-1" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
+  <div className={modal fade ${show ? "show d-block" : "d-none"}} tabIndex="-1" style={{ backgroundColor: "rgba(0,0,0,0.5)" }}>
     <div className="modal-dialog">
       <div className="modal-content border-0 shadow-lg">
         <div className="modal-header bg-warning text-dark">
@@ -102,7 +141,7 @@ const ExamPage = () => {
   const formatTime = () => {
     const minutes = Math.floor(timeLeft / 60).toString().padStart(2, "0");
     const seconds = (timeLeft % 60).toString().padStart(2, "0");
-    return `${minutes}:${seconds}`;
+    return ${minutes}:${seconds};
   };
 
   const toggleMarkForReview = () => {
@@ -113,15 +152,15 @@ const ExamPage = () => {
   };
 
   const prepareSubmit = () => {
-  const unanswered = questions.reduce((acc, q, idx) => {
-    if (answers[q.question_id] === undefined) {
-      acc.push({ index: idx + 1, question_id: q.question_id });
-    }
-    return acc;
-  }, []);
-  setUnansweredQuestions(unanswered);
-  setShowSubmitModal(true);
-};
+    const unanswered = questions.reduce((acc, q, idx) => {
+      if (answers[q.question_id] === undefined) {
+        acc.push({ index: idx + 1, question_id: q.question_id });
+      }
+      return acc;
+    }, []);
+    setUnansweredQuestions(unanswered);
+    setShowSubmitModal(true);
+  };
 
   const handleSubmit = useCallback(async () => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -140,7 +179,6 @@ const ExamPage = () => {
     }
   }, [navigate]);
 
-  // Calculate question status counts
   useEffect(() => {
     if (questions.length === 0) return;
     
@@ -186,46 +224,44 @@ const ExamPage = () => {
   }, [examStarted, timeLeft, handleSubmit]);
 
   useEffect(() => {
-  const loadData = async () => {
-    try {
-      const [profileRes, questionsRes] = await Promise.all([
-        api.get("/candidate/profile"),
-        api.get("/candidate/get/questions"),
-      ]);
+    const loadData = async () => {
+      try {
+        const [profileRes, questionsRes] = await Promise.all([
+          api.get("/candidate/profile"),
+          api.get("/candidate/get/questions"),
+        ]);
 
-      setCandidate(profileRes.data.candidate_name);
-      setQuestions(questionsRes.data.mcqs || []);
+        setCandidate(profileRes.data.candidate_name);
+        setQuestions(questionsRes.data.mcqs || []);
 
-      const savedAnswers = JSON.parse(localStorage.getItem("answers") || "{}");
-      const serverAnswers = await api.get("/candidate/get/all/answers");
-      setAnswers({ ...serverAnswers.data.answers, ...savedAnswers });
+        const savedAnswers = JSON.parse(localStorage.getItem("answers") || "{}");
+        const serverAnswers = await api.get("/candidate/get/all/answers");
+        setAnswers({ ...serverAnswers.data.answers, ...savedAnswers });
 
-      const storedEndsAt = localStorage.getItem("exam_ends_at");
+        const storedEndsAt = localStorage.getItem("exam_ends_at");
 
-      if (!storedEndsAt) {
-        const { data } = await api.post("/candidate/start_exam");
-        endsAtRef.current = data.ends_at;
-        localStorage.setItem("exam_ends_at", data.ends_at);
-        setExamStarted(true);
+        if (!storedEndsAt) {
+          const { data } = await api.post("/candidate/start_exam");
+          endsAtRef.current = data.ends_at;
+          localStorage.setItem("exam_ends_at", data.ends_at);
+          setExamStarted(true);
 
-        const remaining = Math.floor((new Date(data.ends_at) - new Date()) / 1000);
-        setTimeLeft(Math.max(0, remaining));
-      } else {
-        endsAtRef.current = storedEndsAt;
-        setExamStarted(true);
+          const remaining = Math.floor((new Date(data.ends_at) - new Date()) / 1000);
+          setTimeLeft(Math.max(0, remaining));
+        } else {
+          endsAtRef.current = storedEndsAt;
+          setExamStarted(true);
 
-        const remaining = Math.floor((new Date(storedEndsAt) - new Date()) / 1000);
-        setTimeLeft(Math.max(0, remaining));
+          const remaining = Math.floor((new Date(storedEndsAt) - new Date()) / 1000);
+          setTimeLeft(Math.max(0, remaining));
+        }
+      } catch {
+        navigate("/error", { state: { message: "Initialization failed" } });
       }
-    } catch {
-      navigate("/error", { state: { message: "Initialization failed" } });
-    }
-  };
+    };
 
-  loadData();
-}, [navigate]);
-
-
+    loadData();
+  }, [navigate]);
 
   useEffect(() => {
     const handleVisibilityChange = async () => {
@@ -270,7 +306,6 @@ const ExamPage = () => {
 
   const streamWebcam = useCallback(async () => {
     try {
-      // Stop existing stream if any
       if (webcamStreamRef.current) {
         webcamStreamRef.current.getTracks().forEach(track => track.stop());
         webcamStreamRef.current = null;
@@ -305,7 +340,6 @@ const ExamPage = () => {
     api.post("/candidate/answer", { question_id, answer: option }).catch(() => {});
   };
 
-  // Track visited questions
   useEffect(() => {
     if (currentQuestion) {
       setVisited(prev => ({ ...prev, [currentQuestion.question_id]: true }));
@@ -363,26 +397,35 @@ const ExamPage = () => {
               )}
             </div>
             <div className="card-body overflow-auto">
-              <h5 className="card-title mb-4 fw-normal">{currentQuestion?.question}</h5>
+              <div className="card-title mb-4 fw-normal">
+                <FormattedContent content={currentQuestion?.question} />
+              </div>
               <div className="vstack gap-3">
-                {currentQuestion?.options?.map((opt, idx) => (
-                  <div 
-                    key={idx}
-                    className={`p-3 rounded-3 border cursor-pointer ${
-                      answers[currentQuestion?.question_id] === opt[0]
-                        ? "bg-primary text-white border-primary"
-                        : "bg-white"
-                    }`}
-                    onClick={() => 
-                      cameraPermission && handleAnswer(currentQuestion.question_id, opt[0])
-                    }
-                  >
-                    <div className="d-flex align-items-start">
-                      <span className="fw-bold me-3">{opt[0]}.</span>
-                      <span>{opt.slice(3)}</span>
+                {currentQuestion?.options?.map((opt, idx) => {
+                  const prefix = opt.substring(0, 2);
+                  const content = opt.substring(3);
+                  
+                  return (
+                    <div 
+                      key={idx}
+                      className={`p-3 rounded-3 border cursor-pointer transition-all ${
+                        answers[currentQuestion?.question_id] === prefix
+                          ? "bg-primary text-white border-primary"
+                          : "bg-white hover-shadow"
+                      }`}
+                      onClick={() => 
+                        cameraPermission && handleAnswer(currentQuestion.question_id, prefix)
+                      }
+                    >
+                      <div className="d-flex align-items-start">
+                        <span className="fw-bold me-3">{prefix}</span>
+                        <div className="flex-grow-1">
+                          <FormattedContent content={content} />
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
             <div className="card-footer bg-light d-flex justify-content-between">
@@ -456,7 +499,7 @@ const ExamPage = () => {
                 {Object.entries(statusCounts).map(([status, count]) => (
                   <div key={status} className="d-flex flex-column align-items-center">
                     <div className="d-flex align-items-center mb-1">
-                      <span className={`badge bg-${statusColors[status]} me-1`} style={{ width: 12, height: 12, borderRadius: '50%' }}></span>
+                      <span className={badge bg-${statusColors[status]} me-1} style={{ width: 12, height: 12, borderRadius: '50%' }}></span>
                       <span className="fw-bold small">{count}</span>
                     </div>
                     <small className="text-capitalize text-muted" style={{ fontSize: "0.65rem" }}>
@@ -473,7 +516,7 @@ const ExamPage = () => {
                   return (
                     <button
                       key={q.question_id}
-                      className={`btn btn-sm btn-${statusColors[status]} position-relative`}
+                      className={btn btn-sm btn-${statusColors[status]} position-relative}
                       onClick={() => setCurrentQuestionIndex(idx)}
                     >
                       {idx + 1}
@@ -491,7 +534,7 @@ const ExamPage = () => {
               <div className="mt-auto">
                 <div className="d-flex align-items-center justify-content-between mb-3">
                   <div className="fw-medium">Live Proctoring</div>
-                  <div className={`badge ${cameraPermission ? "bg-success" : "bg-danger"}`}>
+                  <div className={badge ${cameraPermission ? "bg-success" : "bg-danger"}}>
                     {cameraPermission ? "Active" : "Disabled"}
                   </div>
                 </div>
@@ -540,10 +583,10 @@ const ExamPage = () => {
                       <span className="d-block fw-medium mb-1">Unanswered Questions:</span>
                       <div className="d-flex flex-wrap gap-1">
                         {unansweredQuestions.map(q => (
-                        <span key={q.question_id} className="badge bg-dark me-1">
-                          {q.index}
-                        </span>
-                           ))}
+                          <span key={q.question_id} className="badge bg-dark me-1">
+                            {q.index}
+                          </span>
+                        ))}
                       </div>
                     </div>
                   </div>
